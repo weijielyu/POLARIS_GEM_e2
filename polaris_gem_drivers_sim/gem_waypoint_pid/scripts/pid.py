@@ -40,25 +40,24 @@ class PID:
         """
 
         # TODO: implement PID control
-        error = self.set_point - feedback_val
+        error =  feedback_val
         delta_error = error - self.last_err
         cur_time = time.time()
         delta_time = cur_time - self.last_time
 
         if (delta_time >= self.sample_time):
             self.p_term = self.Kp * error
-            self.i_term += self.Ki * (error + delta_time)
-            if self.i_term > self.out_limits[1]:
-                self.i_term = self.out_limits[1]
-            if self.i_term < self.out_limits[0]:
-                self.i_term = self.out_limits[0]
+            self.i_term += self.Ki * (error * delta_time)
             self.d_term = self.Kd * (delta_error / delta_time)
 
         self.last_err = error
         self.last_time = cur_time
 
         self.output = self.p_term + self.i_term + self.d_term
-        
+
+        self.output = max(min(self.output, self.out_limits[1]),
+                         self.out_limits[0])
+    
         return self.output
 
 
