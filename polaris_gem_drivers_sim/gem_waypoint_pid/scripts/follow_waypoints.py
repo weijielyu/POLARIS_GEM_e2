@@ -41,9 +41,9 @@ class WaypointPIDControl(object):
 
         # TODO: set your own weights for P, I, D terms
         self.pid = PID(
-            Kp=10.0,
-            Ki=10.0,
-            Kd=10.0,
+            Kp=0.2,
+            Ki=0.001,
+            Kd=0.5,
             set_point=0.0,
             sample_time=0.01,
             out_limits=(-0.61, 0.61),
@@ -103,6 +103,7 @@ class WaypointPIDControl(object):
 
             # get current position and orientation in the world frame
             cur_x, cur_y, cur_yaw = self.get_gem_pose()
+            print(cur_x,cur_y, cur_yaw)
 
             self.path_points_x = np.array(self.path_points_x)
             self.path_points_y = np.array(self.path_points_y)
@@ -120,6 +121,7 @@ class WaypointPIDControl(object):
             )[0]
 
             # finding the goal point which is the last in the set of points less than the lookahead distance
+            temp_angle = 0
             for idx in goal_arr:
                 v1 = [
                     self.path_points_x[idx] - cur_x,
@@ -127,9 +129,13 @@ class WaypointPIDControl(object):
                 ]
                 v2 = [np.cos(cur_yaw), np.sin(cur_yaw)]
                 temp_angle = self.find_angle(v1, v2)
+
                 if abs(temp_angle) < np.pi / 2:
                     self.goal = idx
+                    temp_idx = idx
+                    print(idx)
                     break
+            print(temp_angle)
 
             # TODO: transforming the goal point into the vehicle coordinate frame
             # goal_point_x = v1[0]
@@ -137,7 +143,16 @@ class WaypointPIDControl(object):
             # goal_point_yaw = temp_angle
 
             # TODO: define your feedback value
-            cur_feedback_val = temp_angle
+            # v1 = [
+            #     self.path_points_x[temp_idx+2] - cur_x,
+            #     self.path_points_y[temp_idx+2] - cur_y,
+            # ]
+            # v2 = [np.cos(cur_yaw), np.sin(cur_yaw)]
+            # temp_angle = self.find_angle(v1, v2)
+            if cur_y >= self.path_points_y[idx]:
+                cur_feedback_val = -temp_angle
+            else:
+                cur_feedback_val = temp_angle
 
             angle = self.pid(cur_feedback_val)
 
@@ -146,7 +161,7 @@ class WaypointPIDControl(object):
             )
 
             # implement constant pure pursuit controller
-            self.ackermann_msg.speed = 2.8
+            self.ackermann_msg.speed = 3
             self.ackermann_msg.steering_angle = angle
             self.ackermann_pub.publish(self.ackermann_msg)
 
