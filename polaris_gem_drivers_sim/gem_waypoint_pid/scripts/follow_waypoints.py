@@ -41,9 +41,9 @@ class WaypointPIDControl(object):
 
         # TODO: set your own weights for P, I, D terms
         self.pid = PID(
-            Kp=0.2,
-            Ki=0.001,
-            Kd=0.5,
+            Kp=0.8,
+            Ki=0.4,
+            Kd=0,
             set_point=0.0,
             sample_time=0.01,
             out_limits=(-0.61, 0.61),
@@ -91,11 +91,28 @@ class WaypointPIDControl(object):
 
         return round(x, 4), round(y, 4), round(yaw, 4)
 
+    # def find_angle(self, v1, v2):
+    #     cosang = np.dot(v1, v2)
+    #     sinang = la.norm(np.cross(v1, v2))
+    #     # [-pi, pi]
+    #     return np.arctan2(sinang, cosang)
     def find_angle(self, v1, v2):
-        cosang = np.dot(v1, v2)
-        sinang = la.norm(np.cross(v1, v2))
-        # [-pi, pi]
-        return np.arctan2(sinang, cosang)
+        dx1 = v1[0]
+        dy1 = v1[1]
+        dx2 = v2[0]
+        dy2 = v2[1]
+        angle1 = math.atan2(dy1, dx1)
+        # angle1 = int(angle1 * 180/math.pi)
+        #print(angle1)
+        angle2 = math.atan2(dy2, dx2)
+        # angle2 = int(angle2 * 180/math.pi)
+        #print(angle2)
+        included_angle = angle1-angle2
+        if included_angle > math.pi:
+            included_angle = included_angle - math.pi*2
+        if included_angle < -math.pi:
+            included_angle = included_angle + math.pi*2
+        return included_angle
 
     def start_drive(self):
 
@@ -121,7 +138,6 @@ class WaypointPIDControl(object):
             )[0]
 
             # finding the goal point which is the last in the set of points less than the lookahead distance
-            temp_angle = 0
             for idx in goal_arr:
                 v1 = [
                     self.path_points_x[idx] - cur_x,
@@ -132,27 +148,31 @@ class WaypointPIDControl(object):
 
                 if abs(temp_angle) < np.pi / 2:
                     self.goal = idx
-                    temp_idx = idx
-                    print(idx)
                     break
-            print(temp_angle)
 
             # TODO: transforming the goal point into the vehicle coordinate frame
-            # goal_point_x = v1[0]
-            # goal_point_y = v1[1]
+            # goal_point = [
+            #             self.path_points_x[self.goal] - cur_x,
+            #             self.path_points_y[self.goal] - cur_y
+            # ]
+            # R = np.array([
+            #     [np.cos(cur_yaw), np.sin(cur_yaw)],
+            #     [-np.sin(cur_yaw), np.cos(cur_yaw)]
+            # ])
+            # goal_point_ego_coords = np.dot(R, goal_point)
+
             # goal_point_yaw = temp_angle
 
             # TODO: define your feedback value
-            # v1 = [
-            #     self.path_points_x[temp_idx+2] - cur_x,
-            #     self.path_points_y[temp_idx+2] - cur_y,
-            # ]
-            # v2 = [np.cos(cur_yaw), np.sin(cur_yaw)]
-            # temp_angle = self.find_angle(v1, v2)
-            if cur_y >= self.path_points_y[idx]:
-                cur_feedback_val = -temp_angle
-            else:
-                cur_feedback_val = temp_angle
+            v1 = [
+                self.path_points_x[self.goal] - cur_x,
+                self.path_points_y[self.goal] - cur_y,
+            ]
+            v2 = [np.cos(cur_yaw), np.sin(cur_yaw)]
+            temp_angle = self.find_angle(v1, v2)
+            cur_feedback_val = temp_angle
+
+            # cur_feedback_val = self.find_angle(goal_point_ego_coords,(0,1))
 
             angle = self.pid(cur_feedback_val)
 
@@ -161,7 +181,7 @@ class WaypointPIDControl(object):
             )
 
             # implement constant pure pursuit controller
-            self.ackermann_msg.speed = 3
+            self.ackermann_msg.speed = 5
             self.ackermann_msg.steering_angle = angle
             self.ackermann_pub.publish(self.ackermann_msg)
 
