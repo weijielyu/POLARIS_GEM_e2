@@ -45,19 +45,30 @@ class PID:
         cur_time = time.time()
         delta_time = cur_time - self.last_time
 
-        if (delta_time >= self.sample_time):
-            self.p_term = self.Kp * error
-            self.i_term += self.Ki * (error * delta_time)
-            self.d_term = self.Kd * (delta_error / delta_time)
+        if (delta_time < self.sample_time):
+            return
+
+        self.p_term = error
+        self.i_term += error * delta_time
+        self.d_term = delta_error / delta_time
+
+        self.i_term = max(min(self.i_term, self.out_limits[1]), self.out_limits[0])
+
+
+        if self.i_term < self.out_limits[0]:
+            self.i_term = self.out_limits[0]
+        elif self.i_term > self.out_limits[1]:
+            self.i_term = self.out_limits[1]
+
 
         self.last_err = error
         self.last_time = cur_time
 
-        self.output = self.p_term + self.i_term + self.d_term
-
-        self.output = max(min(self.output, self.out_limits[1]),
-                         self.out_limits[0])
-    
+        self.output = self.Kp * self.p_term + self.Ki * self.i_term + self.Kd * self.d_term
+        if self.output < self.out_limits[0]:
+            self.output = self.out_limits[0]
+        elif self.output > self.out_limits[1]:
+            self.output = self.out_limits[1]
         return self.output
 
 
